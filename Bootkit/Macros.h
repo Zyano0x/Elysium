@@ -4,7 +4,7 @@
 /* Calculates absolute address from a relative offset using GetPtr() */
 #define G_PTR( x )	( ULONG_PTR )( GetPtr( ) - ( ( ULONG_PTR ) & GetPtr - ( ULONG_PTR ) x ) )
 
-/* Place function in a specific section */
+/* Place function in a specific order */
 #define D_SEC( x )	__pragma( code_seg( push, ".text$" #x ) )
 
 /* Cast as a pointer with the specified typedef */
