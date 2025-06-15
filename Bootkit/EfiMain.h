@@ -10,4 +10,4 @@
  * region and places an inline hook on FreePages.
  *
 !*/
-D_SEC( A ) EFI_STATUS EFIAPI EfiMain( IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE* SystemTable );
+D_SEC( A ) EFI_STATUS EFIAPI EfiMain( IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE* SystemTable ) E_SEC;

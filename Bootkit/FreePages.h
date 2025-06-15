@@ -10,4 +10,4 @@
  * ImgpLoadPEImage routine.
  *
 !*/
-D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN UINTN Pages );
+D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN UINTN Pages ) E_SEC;

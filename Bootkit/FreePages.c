@@ -112,4 +112,4 @@ D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN U
 LEAVE:
     /* Execute original routine */
     return ( ( D_API( FreePagesHook ) )( Gen->FreePages ) )( Memory, Pages );
-}
+} E_SEC;

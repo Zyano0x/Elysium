@@ -45,7 +45,7 @@ D_SEC( A ) EFI_STATUS EFIAPI EfiMain( IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_T
     } while ( TRUE );
 
     /* Calculate the length of the shellcode */
-    Len = U_PTR( G_PTR( G_END( ) ) - G_PTR( FreePagesHook ) );
+    Len = U_PTR( G_PTR( G_END ) - G_PTR( FreePagesHook ) );
 
     /* Calculate the number of pages needed for allocation */
     Pgs = U_PTR( ( Len >> EFI_PAGE_SHIFT ) + ( ( Len & EFI_PAGE_MASK ) ? 1 : 0 ) );
@@ -76,4 +76,4 @@ D_SEC( A ) EFI_STATUS EFIAPI EfiMain( IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_T
     }
     /* Failure */
     return EFIERR( 0x100 );
-}
+} E_SEC;
