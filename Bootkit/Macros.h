@@ -17,7 +17,7 @@
 #define D_SEC( x )	__pragma( code_seg( push, ".text$" #x ) )
 
 /* End specific section alligment */
-#define E_SEC       __pragma( code_seg( pop ) )
+#define E_SEC           __pragma( code_seg( pop ) )
 
 /* Arch Specific Macros */
 #if defined( _WIN64 )
