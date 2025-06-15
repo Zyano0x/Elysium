@@ -7,6 +7,9 @@
 /* Place function in a specific order */
 #define D_SEC( x )	__pragma( code_seg( push, ".text$" #x ) )
 
+/* End specific section alligment */
+#define E_SEC( x )      __pragma( code_seg( pop ) )
+
 /* Cast as a pointer with the specified typedef */
 #define D_API( x )	__typeof__( x )
 
