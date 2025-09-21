@@ -38,6 +38,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 #ifndef VFRCOMPILE
 #include <Guid/WinCertificate.h>
+
 ///
 /// Enumeration of memory types introduced in UEFI.
 ///

@@ -43,7 +43,7 @@
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <MergeSections Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </MergeSections>
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">/ALIGN:16 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">/ALIGN:16 /EMITPOGOPHASEINFO %(AdditionalOptions)</AdditionalOptions>
       <EntryPointSymbol Condition="'$(Configuration)|$(Platform)'=='Release|x64'">EfiMain</EntryPointSymbol>
       <BaseAddress Condition="'$(Configuration)|$(Platform)'=='Release|x64'">0</BaseAddress>
       <Driver Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Driver</Driver>
@@ -86,8 +86,8 @@
       <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdclatest</LanguageStandard_C>
     </ClCompile>
     <PostBuildEvent>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">objcopy --strip-all "$(SolutionDir)$(Platform)\$(TargetName).efi"
-strip --strip-all "$(SolutionDir)$(Platform)\$(TargetName).efi"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

