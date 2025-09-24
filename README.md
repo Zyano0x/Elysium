@@ -222,3 +222,7 @@ Patch Guard (Kernel Patch Protection) activates only after ntoskrnl.exe has been
 
 Elysium and all examples are built and tested on Windows 10 22H2, but they are expected to work on other Windows 10 versions (20H2, 21H1, 21H2).  
 Windows 11 has not been tested and may not be supported.
+
+## Credits
+
+* **Bootlicker** for coding style and position-independed tricks
