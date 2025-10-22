@@ -1,6 +1,124 @@
 #include "FreePages.h"
 
 /*!
+ * Converts an ASCII character to its lowercase form without
+ * relying on the CRT. Used to perform case-insensitive checks
+ * against the PDB path that ships with winload.efi.
+ */
+STATIC UINT8 ToLowerAscii( UINT8 Value )
+{
+    if ( Value >= 'A' && Value <= 'Z' )
+    {
+        return ( UINT8 )( Value + 0x20 );
+    }
+    return Value;
+}
+
+STATIC UINT32 GetLength( CONST CHAR* String )
+{
+    UINT32 Length = 0;
+
+    while ( String[ Length ] != 0 )
+    {
+        ++Length;
+    }
+
+    return Length;
+}
+
+/*!
+ * Performs a case-insensitive substring search within the variable-length
+ * PDB path stored inside the RSDS debug record. Recent Windows 11 builds
+ * (including 25H2 previews) ship both the historical winload artifacts and
+ * the newer winloadhost alias, so we recognise the common loader names that
+ * appear across these releases.
+ */
+STATIC BOOL PathContainsToken( PUINT8 Path, UINT32 Size, CONST CHAR* Token )
+{
+    CONST UINT32 TokenLength = GetLength( Token );
+
+    if ( TokenLength == 0 || Size < TokenLength )
+    {
+        return FALSE;
+    }
+
+    for ( UINT32 Index = 0 ; ( Index + TokenLength ) <= Size ; ++Index )
+    {
+        UINT8 Character = Path[ Index ];
+
+        if ( Character == 0 )
+        {
+            break;
+        }
+
+        if ( ToLowerAscii( Character ) != ( UINT8 )Token[ 0 ] )
+        {
+            continue;
+        }
+
+        BOOL Match = TRUE;
+
+        for ( UINT32 Offset = 1 ; Offset < TokenLength ; ++Offset )
+        {
+            Character = Path[ Index + Offset ];
+
+            if ( Character == 0 )
+            {
+                Match = FALSE;
+                break;
+            }
+
+            if ( ToLowerAscii( Character ) != ( UINT8 )Token[ Offset ] )
+            {
+                Match = FALSE;
+                break;
+            }
+        }
+
+        if ( Match )
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+STATIC BOOL DoesPathContainWinload( PRSDS_DEBUG_FORMAT Rsd, UINT32 DebugDataSize )
+{
+    STATIC CONST CHAR* Tokens[] =
+    {
+        "winload",
+        "winloadapp",
+        "winloadhost"
+    };
+
+    CONST UINT32 HeaderSize = sizeof( RSDS_DEBUG_FORMAT ) - sizeof( Rsd->Path );
+    CONST UINT32 TokenCount = sizeof( Tokens ) / sizeof( Tokens[ 0 ] );
+
+    PUINT8       Path = NULL;
+    UINT32       Size = 0;
+
+    if ( DebugDataSize <= HeaderSize )
+    {
+        return FALSE;
+    }
+
+    Size = DebugDataSize - HeaderSize;
+    Path = ( PUINT8 )( Rsd->Path );
+
+    for ( UINT32 Index = 0 ; Index < TokenCount ; ++Index )
+    {
+        if ( PathContainsToken( Path, Size, Tokens[ Index ] ) )
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+/*!
  *
  * Purpose:
  *
@@ -68,7 +186,7 @@ D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN U
         if ( Rsd->Signature == PE_PDB_RSDS_SIGNATURE )
         {
             /* Is this winload.efi? */
-            if ( Rsd->Path == WINLOAD_PATH_SIGNATURE )
+            if ( DoesPathContainWinload( Rsd, Dbg->SizeOfData ) )
             {
                 /* Yes! - Set up the pointer to the base of the PE image */
                 Adr = C_PTR( U_PTR( Dos ) );
