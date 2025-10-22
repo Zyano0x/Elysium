@@ -226,14 +226,12 @@ typedef struct _IMAGE_DEBUG_DIRECTORY {
 #define IMAGE_DEBUG_TYPE_CLSID         11   // Class ID (GUID)
 #define IMAGE_DEBUG_TYPE_REPRO         16   // Reproducible build info (MISC-like)
 
-#define WINLOAD_PATH_SIGNATURE         0x5F64616F6C6E6977
-
 __declspec(align(1))
 typedef struct _RSDS_DEBUG_FORMAT {
     DWORD Signature;
     GUID Guid;
     DWORD Age;
-    UINT64 Path;
+    CHAR Path[ 1 ];
 } RSDS_DEBUG_FORMAT, * PRSDS_DEBUG_FORMAT;
 
 #define PE_PDB_RSDS_SIGNATURE 0x53445352 // SDSR
