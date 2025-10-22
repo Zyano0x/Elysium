@@ -221,7 +221,7 @@ Patch Guard (Kernel Patch Protection) activates only after ntoskrnl.exe has been
 ## Compatibility
 
 Elysium and all examples are built and tested on Windows 10 22H2, Windows 11 23H2, and the current Windows 11 25H2 Insider bits, but they are expected to work on other Windows 10 versions (20H2, 21H1, 21H2) and the latest Windows 11 releases.
-The winload.efi detection logic now matches the module by name rather than a fixed PDB signature, allowing future Windows 11 builds with different debug path prefixes to be patched automatically.
+The winload.efi detection logic now matches the module by name rather than a fixed PDB signature, allowing future Windows 11 builds with different debug path prefixes to be patched automatically. The in-memory patcher also recognises both the legacy short `JE` sequence and the newer Windows 11 near-branch form around `ImgpValidateImageHash`, so recent builds that changed the code generation are handled transparently.
 
 ## Credits
 
